@@ -25,12 +25,13 @@ _tokenizer = None
 _model_loaded = False
 
 
-def load_model(model_name: str = "google/gemma-2b"):
+def load_model(model_name: str = "google/gemma-2b", use_auth_token: bool = True):
     """
     Load the Gemma 2B model and tokenizer.
     
     Args:
         model_name: Hugging Face model identifier
+        use_auth_token: Whether to use HF authentication token
     
     Returns:
         Tuple of (tokenizer, model)
@@ -46,8 +47,15 @@ def load_model(model_name: str = "google/gemma-2b"):
     try:
         logger.info(f"Loading model: {model_name}")
         
+        # Get HF token from environment or use default authentication
+        import os
+        hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        
         # Load tokenizer
-        _tokenizer = AutoTokenizer.from_pretrained(model_name)
+        _tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            token=hf_token if use_auth_token else None
+        )
         
         # Load model with appropriate device (CPU/GPU)
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -57,7 +65,8 @@ def load_model(model_name: str = "google/gemma-2b"):
             model_name,
             torch_dtype=torch.float16 if device == "cuda" else torch.float32,
             device_map="auto" if device == "cuda" else None,
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
+            token=hf_token if use_auth_token else None
         )
         
         if device == "cpu":

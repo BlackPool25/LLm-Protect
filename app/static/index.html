@@ -289,20 +289,20 @@
                 <h2>📝 User Input</h2>
                 <form id="inputForm">
                     <div class="form-group">
-                        <label for="userPrompt">Your Prompt:</label>
+                        <label for="user_prompt">Your Prompt:</label>
                         <textarea 
-                            id="userPrompt" 
-                            name="userPrompt" 
+                            id="user_prompt" 
+                            name="user_prompt" 
                             placeholder="Enter your question or prompt here..."
                             required
                         ></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label for="fileUpload">Upload File (Optional):</label>
+                        <label for="file">Upload File (Optional):</label>
                         <input 
                             type="file" 
-                            id="fileUpload" 
+                            id="file" 
                             name="file"
                             accept=".txt,.md,.pdf,.docx"
                         >
@@ -318,18 +318,18 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="externalData">External Data / RAG (Optional):</label>
+                        <label for="external_data">External Data / RAG (Optional):</label>
                         <textarea 
-                            id="externalData" 
-                            name="externalData" 
+                            id="external_data" 
+                            name="external_data" 
                             placeholder='Enter external data as JSON array, e.g., ["context 1", "context 2"]'
                         ></textarea>
                     </div>
                     
                     <div class="form-group">
                         <div class="checkbox-group">
-                            <input type="checkbox" id="retrieveFromDB" name="retrieveFromDB">
-                            <label for="retrieveFromDB" style="margin: 0;">Retrieve from Vector DB</label>
+                            <input type="checkbox" id="retrieve_from_vector_db" name="retrieve_from_vector_db">
+                            <label for="retrieve_from_vector_db" style="margin: 0;">Retrieve from Vector DB</label>
                         </div>
                     </div>
                     
@@ -422,16 +422,17 @@
             addLog('Starting input preparation pipeline...', 'info');
             
             const formData = new FormData(e.target);
-            const userPrompt = formData.get('userPrompt');
-            const externalData = formData.get('externalData');
-            const retrieveFromDB = document.getElementById('retrieveFromDB').checked;
+            const userPrompt = formData.get('user_prompt');
+            const externalData = formData.get('external_data');
+            const retrieveFromDB = document.getElementById('retrieve_from_vector_db').checked;
             
             addLog(`User prompt length: ${userPrompt.length} characters`, 'info');
             
-            if (externalData) {
-                formData.set('external_data', externalData);
-            }
-            formData.set('retrieve_from_vector_db', retrieveFromDB);
+            // Remove checkbox value (it's not the actual boolean)
+            formData.delete('retrieve_from_vector_db');
+            
+            // Set the boolean as string for FastAPI Form
+            formData.set('retrieve_from_vector_db', retrieveFromDB ? 'true' : 'false');
             
             try {
                 // Step 1: Prepare input

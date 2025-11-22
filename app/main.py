@@ -219,6 +219,16 @@ async def prepare_text_input(
         request_id = parsed["request_id"]
         step_times["parse_validate"] = (time.time() - step_start) * 1000
         
+        # DETAILED LOG: Show parsed input
+        logger.info(f"[{request_id}] ===== STEP 1: PARSED INPUT =====")
+        logger.info(f"[{request_id}] Raw user text: {parsed['raw_user'][:100]}..." if len(parsed['raw_user']) > 100 else f"[{request_id}] Raw user text: {parsed['raw_user']}")
+        logger.info(f"[{request_id}] External data items: {len(parsed['raw_external'])}")
+        if parsed['raw_external']:
+            for i, ext in enumerate(parsed['raw_external'][:3]):  # Show first 3
+                logger.info(f"[{request_id}]   External[{i}]: {ext[:80]}..." if len(ext) > 80 else f"[{request_id}]   External[{i}]: {ext}")
+        logger.info(f"[{request_id}] File provided: {parsed['raw_file'] or 'None'}")
+        logger.info(f"[{request_id}] Validation: {parsed['validation']}")
+        
         with RequestLogger(request_id, logger) as req_logger:
             # Step 2: Extract file text (if file provided)
             step_start = time.time()
@@ -231,11 +241,24 @@ async def prepare_text_input(
                     try:
                         file_chunks, file_info = extract_file_text(parsed["raw_file"])
                         req_logger.log_step("file_extraction", (time.time() - step_start) * 1000)
+                        
+                        # DETAILED LOG: Show file extraction results
+                        logger.info(f"[{request_id}] ===== STEP 2: FILE EXTRACTION =====")
+                        logger.info(f"[{request_id}] File: {file_info.original_path}")
+                        logger.info(f"[{request_id}] Type: {file_info.type}, Hash: {file_info.hash[:16]}...")
+                        logger.info(f"[{request_id}] Extraction success: {file_info.extraction_success}")
+                        logger.info(f"[{request_id}] Chunks created: {file_info.chunk_count}")
+                        if file_chunks:
+                            logger.info(f"[{request_id}] First chunk preview: {file_chunks[0].content[:100]}...")
+                            logger.info(f"[{request_id}] Total extracted chars: {sum(len(c.content) for c in file_chunks)}")
                     except Exception as e:
                         logger.error(f"File extraction failed: {e}")
                         # Continue without file data
                 else:
                     logger.warning(f"File validation failed: {error}")
+            else:
+                logger.info(f"[{request_id}] ===== STEP 2: FILE EXTRACTION =====")
+                logger.info(f"[{request_id}] No file provided")
             
             step_times["file_extraction"] = (time.time() - step_start) * 1000
             
@@ -250,6 +273,17 @@ async def prepare_text_input(
             step_times["rag_processing"] = (time.time() - step_start) * 1000
             req_logger.log_step("rag_processing", step_times["rag_processing"])
             
+            # DETAILED LOG: Show RAG processing
+            logger.info(f"[{request_id}] ===== STEP 3: RAG DATA PROCESSING =====")
+            logger.info(f"[{request_id}] RAG enabled: {rag_enabled}")
+            logger.info(f"[{request_id}] External chunks processed: {len(external_chunks)}")
+            logger.info(f"[{request_id}] HMAC signatures generated: {len(hmacs)}")
+            if external_chunks:
+                for i, (chunk, hmac) in enumerate(list(zip(external_chunks, hmacs))[:3]):  # Show first 3
+                    logger.info(f"[{request_id}]   Chunk[{i}]: {chunk[:80]}...")
+                    logger.info(f"[{request_id}]   HMAC[{i}]: {hmac[:16]}...")
+            logger.info(f"[{request_id}] Delimiter format: [EXTERNAL]content[/EXTERNAL]")
+            
             # Step 4: Normalize text
             step_start = time.time()
             normalized_user, user_emojis, user_emoji_descs = normalize_text(
@@ -263,6 +297,17 @@ async def prepare_text_input(
             
             step_times["normalization"] = (time.time() - step_start) * 1000
             req_logger.log_step("normalization", step_times["normalization"])
+            
+            # DETAILED LOG: Show normalization
+            logger.info(f"[{request_id}] ===== STEP 4: TEXT NORMALIZATION =====")
+            logger.info(f"[{request_id}] Original user text length: {len(parsed['raw_user'])}")
+            logger.info(f"[{request_id}] Normalized user text length: {len(normalized_user)}")
+            logger.info(f"[{request_id}] Normalized text: {normalized_user[:100]}..." if len(normalized_user) > 100 else f"[{request_id}] Normalized text: {normalized_user}")
+            logger.info(f"[{request_id}] Emojis found: {len(user_emojis)}")
+            if user_emojis:
+                logger.info(f"[{request_id}] Emoji types: {user_emojis}")
+                logger.info(f"[{request_id}] Emoji descriptions: {user_emoji_descs}")
+            logger.info(f"[{request_id}] Emojis preserved in text: YES")
             
             # Step 5: Process media (emojis only for text endpoint)
             step_start = time.time()
@@ -287,6 +332,14 @@ async def prepare_text_input(
             step_times["token_calculation"] = (time.time() - step_start) * 1000
             req_logger.log_step("token_calculation", step_times["token_calculation"])
             
+            # DETAILED LOG: Show token stats
+            logger.info(f"[{request_id}] ===== STEP 5: TOKEN & STATS CALCULATION =====")
+            logger.info(f"[{request_id}] Total characters: {stats.char_total}")
+            logger.info(f"[{request_id}] Estimated tokens: {stats.token_estimate}")
+            logger.info(f"[{request_id}] User/External ratio: {stats.user_external_ratio:.2%}")
+            logger.info(f"[{request_id}] File chunks: {stats.file_chunks_count}")
+            logger.info(f"[{request_id}] Extracted file chars: {stats.extracted_total_chars}")
+            
             # Step 7: Package payload
             step_start = time.time()
             total_time = (time.time() - start_time) * 1000
@@ -309,14 +362,34 @@ async def prepare_text_input(
             )
             step_times["packaging"] = (time.time() - step_start) * 1000
             
+            # DETAILED LOG: Show final payload
+            logger.info(f"[{request_id}] ===== STEP 6: PAYLOAD PACKAGING =====")
+            logger.info(f"[{request_id}] PreparedInput structure created:")
+            logger.info(f"[{request_id}]   text_embed_stub:")
+            logger.info(f"[{request_id}]     - normalized_user: {len(prepared.text_embed_stub.normalized_user)} chars")
+            logger.info(f"[{request_id}]     - normalized_external: {len(prepared.text_embed_stub.normalized_external)} chunks")
+            logger.info(f"[{request_id}]     - hmacs: {len(prepared.text_embed_stub.hmacs)} signatures")
+            logger.info(f"[{request_id}]     - emoji_descriptions: {len(prepared.text_embed_stub.emoji_descriptions)}")
+            logger.info(f"[{request_id}]   image_emoji_stub:")
+            logger.info(f"[{request_id}]     - emoji_summary.count: {prepared.image_emoji_stub.emoji_summary.count}")
+            logger.info(f"[{request_id}]   metadata:")
+            logger.info(f"[{request_id}]     - request_id: {prepared.metadata.request_id}")
+            logger.info(f"[{request_id}]     - rag_enabled: {prepared.metadata.rag_enabled}")
+            logger.info(f"[{request_id}]     - has_file: {prepared.metadata.has_file}")
+            logger.info(f"[{request_id}]     - prep_time_ms: {prepared.metadata.prep_time_ms:.2f}")
+            
             # Validate payload
             valid_payload, payload_error = validate_payload(prepared)
             if not valid_payload:
                 logger.error(f"Payload validation failed: {payload_error}")
                 raise HTTPException(status_code=500, detail=f"Payload validation failed: {payload_error}")
             
+            logger.info(f"[{request_id}] ✓ Payload validation: PASSED")
+            
             # Log summary
+            logger.info(f"[{request_id}] ===== PREPARATION COMPLETE =====")
             logger.info(summarize_payload(prepared))
+            logger.info(f"[{request_id}] → Ready to send to /api/v1/generate endpoint")
             
             # Cleanup temp file
             if temp_file_path and os.path.exists(temp_file_path):
@@ -534,9 +607,27 @@ async def generate_llm_response(request: GenerateRequest):
         full_prompt = "\n".join(prompt_parts)
         
         logger.info(
-            f"Generating response for request {prepared.metadata.request_id}: "
-            f"{len(full_prompt)} chars, {prepared.text_embed_stub.stats.token_estimate} tokens"
+            f"[{prepared.metadata.request_id}] ===== LLM GENERATION STARTED ====="
         )
+        logger.info(
+            f"[{prepared.metadata.request_id}] Prompt construction:"
+        )
+        logger.info(
+            f"[{prepared.metadata.request_id}]   User text: {len(prepared.text_embed_stub.normalized_user)} chars"
+        )
+        logger.info(
+            f"[{prepared.metadata.request_id}]   External chunks: {len(prepared.text_embed_stub.normalized_external)}"
+        )
+        logger.info(
+            f"[{prepared.metadata.request_id}]   Full prompt length: {len(full_prompt)} chars"
+        )
+        logger.info(
+            f"[{prepared.metadata.request_id}]   Estimated tokens: {prepared.text_embed_stub.stats.token_estimate}"
+        )
+        logger.info(
+            f"[{prepared.metadata.request_id}] Full prompt preview:"
+        )
+        logger.info(f"[{prepared.metadata.request_id}] {full_prompt[:200]}..." if len(full_prompt) > 200 else f"[{prepared.metadata.request_id}] {full_prompt}")
         
         # Generate response
         result = generate_response(
@@ -557,10 +648,21 @@ async def generate_llm_response(request: GenerateRequest):
         }
         
         total_time = (time.time() - start_time) * 1000
-        logger.info(
-            f"Generation complete for {prepared.metadata.request_id}: "
-            f"{result.get('output_tokens', 0)} tokens in {total_time:.2f}ms"
-        )
+        
+        # DETAILED LOG: Show generation results
+        logger.info(f"[{prepared.metadata.request_id}] ===== LLM GENERATION COMPLETE =====")
+        logger.info(f"[{prepared.metadata.request_id}] Success: {result.get('success', False)}")
+        logger.info(f"[{prepared.metadata.request_id}] Input tokens (actual): {result.get('input_tokens', 0)}")
+        logger.info(f"[{prepared.metadata.request_id}] Output tokens: {result.get('output_tokens', 0)}")
+        logger.info(f"[{prepared.metadata.request_id}] Generation time: {result.get('total_time_ms', 0):.2f}ms")
+        logger.info(f"[{prepared.metadata.request_id}] Total time (prep + gen): {total_time:.2f}ms")
+        if result.get('success'):
+            generated = result.get('generated_text', '')
+            logger.info(f"[{prepared.metadata.request_id}] Generated text preview: {generated[:150]}..." if len(generated) > 150 else f"[{prepared.metadata.request_id}] Generated text: {generated}")
+        else:
+            logger.error(f"[{prepared.metadata.request_id}] Generation error: {result.get('error', 'Unknown')}")
+        
+        logger.info(f"[{prepared.metadata.request_id}] ===== PIPELINE COMPLETE =====")
         
         return GenerateResponse(**result)
         

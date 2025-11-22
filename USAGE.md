@@ -380,6 +380,108 @@ Example log output:
 4. **No External Modification**: HMAC signatures prevent tampering with external data
 5. **Logging**: Sensitive data should not be logged (currently logs metadata only)
 
+## 💾 Output Saving
+
+All successfully processed inputs are automatically saved to disk for auditing, debugging, and analysis.
+
+### Directory Structure
+
+```
+/home/lightdesk/Projects/LLM-Protect/Outputs/
+├── layer0_text/          # Text processing outputs
+│   └── *.json            # Saved Layer 0 preparations
+└── media_processing/     # Media processing outputs
+    └── *.json            # Saved media preparations
+```
+
+### Automatic Saving
+
+- **Layer 0 outputs**: Saved after successful `/api/v1/prepare-text` requests
+- **Media outputs**: Saved after successful `/api/v1/prepare-media` requests
+- **Format**: JSON with complete PreparedInput data plus save timestamp
+- **Filename**: `YYYYMMDD_HHMMSS_<type>_<request_id>_<text_preview>.json`
+
+### View Output Statistics
+
+**GET** `/api/v1/output-stats`
+
+Returns statistics about saved outputs:
+
+```bash
+curl http://localhost:8000/api/v1/output-stats
+```
+
+**Response**:
+```json
+{
+  "base_directory": "/home/lightdesk/Projects/LLM-Protect/Outputs",
+  "layer0_outputs": 25,
+  "media_outputs": 10,
+  "total_outputs": 35,
+  "recent_layer0_files": ["20251122_103045_layer0_a1b2c3d4_What.json", ...],
+  "recent_media_files": ["20251122_103512_media_e5f6g7h8_Check.json", ...]
+}
+```
+
+### Output File Format
+
+Each saved file contains:
+
+```json
+{
+  "processing_type": "layer0_text",  // or "media_processing"
+  "saved_at": "2025-11-22T10:30:45Z",
+  "prepared_input": {
+    // Complete PreparedInput object
+  }
+}
+```
+
+### Benefits
+
+1. **Audit Trail**: Complete record of all processed requests
+2. **Debugging**: Easy inspection of prepared inputs
+3. **Testing**: Can replay or analyze saved outputs
+4. **Compliance**: Maintains records for security monitoring
+5. **Analysis**: Useful for training data or research
+
+### Cleanup Old Outputs
+
+To manage disk space:
+
+```bash
+# Remove Layer 0 outputs older than 7 days
+find Outputs/layer0_text/ -name "*.json" -mtime +7 -delete
+
+# Remove media outputs older than 7 days
+find Outputs/media_processing/ -name "*.json" -mtime +7 -delete
+
+# Or remove all test outputs
+rm -rf Outputs/layer0_text/* Outputs/media_processing/*
+```
+
+### Programmatic Access
+
+Load and analyze saved outputs:
+
+```python
+import json
+from pathlib import Path
+
+# Load a saved output
+output_file = Path("Outputs/layer0_text/20251122_103045_layer0_a1b2c3d4_What.json")
+with open(output_file) as f:
+    data = json.load(f)
+
+# Access the data
+prepared = data['prepared_input']
+print(f"Request: {prepared['metadata']['request_id']}")
+print(f"User text: {prepared['text_embed_stub']['normalized_user']}")
+print(f"Tokens: {prepared['text_embed_stub']['stats']['token_estimate']}")
+```
+
+See `Outputs/README.md` for detailed documentation.
+
 ## Troubleshooting
 
 ### Library Import Errors

@@ -353,13 +353,17 @@ is_valid = verify_hmac(content, hmac)  # Returns True/False
 ## 📈 Information Flow Diagram
 
 ```
-User Input → /prepare-text → PreparedInput
+User Input → /prepare-text → PreparedInput → [Saved to Outputs/layer0_text/]
                               ↓
                      text_embed_stub → Layer 0 → Layer 1 → /generate
                               ↓
                    image_emoji_stub → Image Processing
                               ↓
                        metadata → Logs & Monitoring
+
+User Input → /prepare-media → PreparedInput → [Saved to Outputs/media_processing/]
+                              ↓
+                   image_emoji_stub → Image Processing
 ```
 
 ## ✅ Data Integrity Guarantees
@@ -428,4 +432,126 @@ If processing fails, an error response is returned:
 ```
 
 The structure is maintained even on errors for consistent parsing.
+
+## 💾 Automatic Output Saving
+
+All successful preparations are automatically saved to disk in organized directories.
+
+### Output Directory Structure
+
+```
+/home/lightdesk/Projects/LLM-Protect/Outputs/
+├── layer0_text/          # Text processing outputs
+│   └── 20251122_103045_layer0_uuid1234_What_is_the_weather.json
+└── media_processing/     # Media processing outputs
+    └── 20251122_103512_media_uuid5678_Check_this_image.json
+```
+
+### Saved File Format
+
+Each saved file includes the original PreparedInput plus metadata about when it was saved:
+
+```json
+{
+  "processing_type": "layer0_text",  // or "media_processing"
+  "saved_at": "2025-11-22T10:30:45Z",
+  "prepared_input": {
+    // Complete PreparedInput object as shown above
+  }
+}
+```
+
+### Filename Convention
+
+**Format**: `YYYYMMDD_HHMMSS_<type>_<short_request_id>_<text_preview>.json`
+
+**Examples**:
+- `20251122_103045_layer0_a1b2c3d4_What_is_the_weather.json`
+- `20251122_103512_media_e5f6g7h8_Check_this_image.json`
+
+**Components**:
+- **Date/Time**: UTC timestamp when output was saved
+- **Type**: `layer0` (text processing) or `media` (media processing)
+- **Short Request ID**: First 8 characters of the UUID
+- **Text Preview**: Sanitized preview of user input (first 30 chars, max 50 chars)
+
+### Viewing Output Statistics
+
+Check output statistics using the API:
+
+```bash
+GET /api/v1/output-stats
+```
+
+Response:
+```json
+{
+  "base_directory": "/home/lightdesk/Projects/LLM-Protect/Outputs",
+  "layer0_outputs": 25,
+  "media_outputs": 10,
+  "total_outputs": 35,
+  "layer0_directory": "/home/lightdesk/Projects/LLM-Protect/Outputs/layer0_text",
+  "media_directory": "/home/lightdesk/Projects/LLM-Protect/Outputs/media_processing",
+  "recent_layer0_files": [
+    "20251122_103045_layer0_a1b2c3d4_What_is_the_weather.json",
+    "20251122_102530_layer0_b2c3d4e5_Analyze_this_document.json",
+    ...
+  ],
+  "recent_media_files": [
+    "20251122_103512_media_e5f6g7h8_Check_this_image.json",
+    ...
+  ]
+}
+```
+
+### When Outputs Are Saved
+
+- ✅ **Saved**: After successful validation of PreparedInput
+- ❌ **Not Saved**: When request fails validation or processing errors occur
+- 📝 **Location**: Automatically logged in application logs with request ID
+
+### Benefits
+
+1. **Audit Trail**: Complete record of all processed inputs
+2. **Debugging**: Easy inspection of what was sent to downstream layers
+3. **Analysis**: Can be used for training, testing, or research
+4. **Recovery**: Outputs can be replayed or reprocessed if needed
+5. **Compliance**: Maintains records for security monitoring
+
+### Output Cleanup
+
+To manage disk space, you can periodically clean old outputs:
+
+```bash
+# Remove Layer 0 outputs older than 7 days
+find /home/lightdesk/Projects/LLM-Protect/Outputs/layer0_text/ \
+  -name "*.json" -mtime +7 -delete
+
+# Remove media outputs older than 7 days
+find /home/lightdesk/Projects/LLM-Protect/Outputs/media_processing/ \
+  -name "*.json" -mtime +7 -delete
+```
+
+### Programmatic Access
+
+The output files can be easily loaded and analyzed:
+
+```python
+import json
+from pathlib import Path
+
+# Load a saved output
+output_path = Path("Outputs/layer0_text/20251122_103045_layer0_a1b2c3d4_What.json")
+with open(output_path) as f:
+    data = json.load(f)
+
+# Access the PreparedInput
+prepared_input = data['prepared_input']
+request_id = prepared_input['metadata']['request_id']
+user_text = prepared_input['text_embed_stub']['normalized_user']
+token_count = prepared_input['text_embed_stub']['stats']['token_estimate']
+
+print(f"Request {request_id}: {user_text}")
+print(f"Tokens: {token_count}")
+```
 

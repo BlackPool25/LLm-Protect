@@ -36,6 +36,7 @@ from app.services.payload_packager import (
     create_error_response
 )
 from app.services.llm_service import generate_response, check_model_availability
+from app.services.output_saver import get_output_saver
 
 # Setup logging
 setup_logging()
@@ -386,6 +387,12 @@ async def prepare_text_input(
             
             logger.info(f"[{request_id}] ✓ Payload validation: PASSED")
             
+            # Save output to disk
+            output_saver = get_output_saver()
+            saved_path = output_saver.save_layer0_output(prepared)
+            if saved_path:
+                logger.info(f"[{request_id}] ✓ Output saved to: {saved_path}")
+            
             # Log summary
             logger.info(f"[{request_id}] ===== PREPARATION COMPLETE =====")
             logger.info(summarize_payload(prepared))
@@ -522,6 +529,12 @@ async def prepare_media_input(
             if not valid_payload:
                 logger.error(f"Payload validation failed: {payload_error}")
                 raise HTTPException(status_code=500, detail=f"Payload validation failed: {payload_error}")
+            
+            # Save output to disk
+            output_saver = get_output_saver()
+            saved_path = output_saver.save_media_output(prepared)
+            if saved_path:
+                logger.info(f"[{request_id}] ✓ Output saved to: {saved_path}")
             
             # Log summary
             logger.info(summarize_payload(prepared))
@@ -691,6 +704,26 @@ async def model_status():
         **status_info,
         "endpoint": f"{settings.API_PREFIX}/generate"
     }
+
+
+@app.get(f"{settings.API_PREFIX}/output-stats")
+async def output_statistics():
+    """
+    Get statistics about saved outputs.
+    
+    Returns counts and locations of saved Layer 0 and media outputs.
+    """
+    output_saver = get_output_saver()
+    stats = output_saver.get_output_stats()
+    
+    # Add recent files info
+    recent_layer0 = output_saver.get_recent_outputs("layer0", limit=5)
+    recent_media = output_saver.get_recent_outputs("media", limit=5)
+    
+    stats["recent_layer0_files"] = [f.name for f in recent_layer0]
+    stats["recent_media_files"] = [f.name for f in recent_media]
+    
+    return stats
 
 
 if __name__ == "__main__":

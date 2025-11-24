@@ -9,6 +9,19 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
 
+# Import security models
+try:
+    from security.models.security_schemas import SecurityReport, SecurityMetadata, ThreatLevel
+    SECURITY_MODELS_AVAILABLE = True
+except ImportError:
+    SECURITY_MODELS_AVAILABLE = False
+    # Fallback definitions if security module not available
+    class ThreatLevel:
+        NONE = "none"
+    SecurityReport = Dict[str, Any]
+    SecurityMetadata = Dict[str, Any]
+
+
 class FileChunk(BaseModel):
     """A chunk of extracted text from a file."""
     content: str = Field(..., description="The text content of the chunk")
@@ -111,6 +124,10 @@ class PreparedInput(BaseModel):
     text_embed_stub: TextEmbedStub = Field(..., description="Data for Layer 0 (text processing)")
     image_emoji_stub: ImageEmojiStub = Field(..., description="Data for media processing")
     metadata: MetadataInfo = Field(..., description="Request metadata and timing")
+    
+    # Security analysis (optional, added by advanced security layer)
+    security_report: Optional[Any] = Field(None, description="Security analysis report")
+    security_metadata: Optional[Any] = Field(None, description="Security processing metadata")
 
 
 # Request models for API endpoints

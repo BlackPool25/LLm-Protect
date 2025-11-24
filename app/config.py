@@ -44,6 +44,21 @@ class Settings:
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
+    # Security settings
+    SECURITY_LEVEL: str = os.getenv("SECURITY_LEVEL", "standard")  # standard, paranoid
+    IMAGE_ANALYSIS_TIMEOUT: int = int(os.getenv("IMAGE_ANALYSIS_TIMEOUT", "30"))
+    ENABLE_STEGANOGRAPHY_DETECTION: bool = os.getenv("ENABLE_STEGANOGRAPHY_DETECTION", "true").lower() == "true"
+    ENABLE_ADVANCED_UNICODE_ANALYSIS: bool = os.getenv("ENABLE_ADVANCED_UNICODE_ANALYSIS", "true").lower() == "true"
+    ENABLE_SEMANTIC_CONFLICT_DETECTION: bool = os.getenv("ENABLE_SEMANTIC_CONFLICT_DETECTION", "true").lower() == "true"
+    ENABLE_BEHAVIORAL_ANALYSIS: bool = os.getenv("ENABLE_BEHAVIORAL_ANALYSIS", "false").lower() == "true"
+    THREAT_SCORE_THRESHOLD: float = float(os.getenv("THREAT_SCORE_THRESHOLD", "0.75"))
+    MAX_SECURITY_ANALYSIS_TIME_MS: int = int(os.getenv("MAX_SECURITY_ANALYSIS_TIME_MS", "500"))
+    
+    # Cache settings
+    ENABLE_SECURITY_CACHE: bool = os.getenv("ENABLE_SECURITY_CACHE", "true").lower() == "true"
+    SECURITY_CACHE_TTL: int = int(os.getenv("SECURITY_CACHE_TTL", "3600"))  # 1 hour
+    SECURITY_CACHE_MAX_SIZE: int = int(os.getenv("SECURITY_CACHE_MAX_SIZE", "10000"))
+    
     def __init__(self):
         """Initialize settings and validate critical configuration."""
         # Ensure upload directory exists

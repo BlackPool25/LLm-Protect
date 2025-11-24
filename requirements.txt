@@ -10,3 +10,15 @@ Pillow==10.2.0
 transformers==4.36.0
 tiktoken==0.5.2
 
+# Advanced Security Dependencies
+numpy==1.24.3
+scipy==1.11.4
+scikit-image==0.22.0
+opencv-python==4.8.1.78
+pycryptodome==3.19.0
+unidecode==1.3.7
+charset-normalizer==3.3.2
+fastapi-limiter==0.1.5
+aioredis==2.0.1
+async-timeout==4.0.3
+

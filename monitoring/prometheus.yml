@@ -1,0 +1,37 @@
+# Prometheus Configuration for LLM-Protect
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'llm-protect'
+    environment: 'production'
+
+# Scrape configurations
+scrape_configs:
+  # Layer-0 Security Filter
+  - job_name: 'layer0'
+    static_configs:
+      - targets: ['layer0:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Input Prep Module (if metrics enabled)
+  - job_name: 'inputprep'
+    static_configs:
+      - targets: ['inputprep:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+# Alerting rules (optional)
+# rule_files:
+#   - 'alerts/*.yml'

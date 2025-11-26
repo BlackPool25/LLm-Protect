@@ -1,0 +1,93 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Layer-0 Security Overview",
+    "tags": ["security", "layer0"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate (req/s)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(layer0_requests_total[5m])",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Scan Latency (ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(layer0_scan_duration_ms_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(layer0_scan_duration_ms_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(layer0_scan_duration_ms_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Status Distribution",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (status) (increase(layer0_requests_total[1h]))",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Top Rules Matched",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (dataset, severity) (increase(layer0_rules_matched_total[1h])))",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Circuit Breaker Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(layer0_circuit_breaker_trips_total[1h])"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Active Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "layer0_active_requests"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 18, "x": 6, "y": 16}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}

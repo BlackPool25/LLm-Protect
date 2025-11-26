@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # Layer-0 Security Filter Service
+  layer0:
+    build:
+      context: .
+      dockerfile: Dockerfile.layer0
+    container_name: llm-protect-layer0
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=info
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - METRICS_ENABLED=true
+      - FAIL_OPEN=false
+      - PREFILTER_ENABLED=true
+      # API Key for authentication (change in production!)
+      - API_KEY=${LAYER0_API_KEY:-dev-api-key-change-me}
+    volumes:
+      - ./layer0/datasets:/app/layer0/datasets:ro
+      - layer0-data:/app/data
+    networks:
+      - llm-protect
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Input Preparation Service
+  inputprep:
+    build:
+      context: .
+      dockerfile: Dockerfile.inputprep
+    container_name: llm-protect-inputprep
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      - MAX_FILE_SIZE_MB=10
+      # Layer-0 integration
+      - LAYER0_API_URL=http://layer0:8000
+      - LAYER0_API_KEY=${LAYER0_API_KEY:-dev-api-key-change-me}
+      - LAYER0_ENABLED=true
+    volumes:
+      - ./Input Prep/uploads:/app/uploads
+      - ./Outputs:/app/Outputs
+      - ./Input Prep/temp_media:/app/temp_media
+      - inputprep-data:/app/data
+    networks:
+      - llm-protect
+    depends_on:
+      layer0:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # Redis for caching and rate limiting (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: llm-protect-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - llm-protect
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Prometheus for metrics collection (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: llm-protect-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - llm-protect
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: llm-protect-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - llm-protect
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  llm-protect:
+    driver: bridge
+
+volumes:
+  layer0-data:
+  inputprep-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:

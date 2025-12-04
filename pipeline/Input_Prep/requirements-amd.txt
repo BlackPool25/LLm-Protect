@@ -1,0 +1,45 @@
+# AMD GPU (ROCm) Requirements for LLM-Protect
+# Use this file if you have an AMD GPU (like Radeon 7900 GRE)
+
+# NumPy compatibility fix
+numpy<2.0.0
+
+# PyTorch with ROCm support (for AMD GPUs)
+--index-url https://download.pytorch.org/whl/rocm6.2
+torch==2.5.0+rocm6.2
+torchvision==0.20.0+rocm6.2
+
+# Core ML/AI libraries
+transformers==4.38.0
+optimum[exporters]==1.17.0
+peft==0.9.0
+
+# ONNX Runtime with ROCm support
+# Note: onnxruntime-rocm may need to be built from source for latest ROCm
+# For now, use CPU version and PyTorch will handle GPU
+onnxruntime==1.17.0
+
+# Multimodal processing
+pymupdf==1.23.21
+pillow==10.2.0
+git+https://github.com/openai/CLIP.git
+
+# API & Security
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+cryptography==42.0.0
+python-jose==3.3.0
+
+# Testing & Monitoring
+pytest==8.0.0
+pytest-asyncio==0.21.1  # 0.23.0 has compatibility issues
+pytest-benchmark==4.0.0
+locust==2.20.0
+prometheus-client==0.19.0
+structlog==24.1.0
+
+# Utilities
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.9
+
